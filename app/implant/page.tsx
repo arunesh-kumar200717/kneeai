@@ -46,6 +46,10 @@ import type {
  * '"@/lib/fixtures"' has no exported member named 'PresetSample'
  */
 type PresetSample = (typeof PRESET_SAMPLES)[number];
+type ImplantPreset = Omit<PresetSample, "mockResult"> & {
+  module: "implant";
+  mockResult: ImplantAnalysisResponse;
+};
 
 /*
  * Metadata can contain different values depending
@@ -84,12 +88,6 @@ function getNonEmptyString(
 
   return null;
 }
-
-/* ============================================================
-   TYPES
-   ============================================================ */
-
-type PresetMetadata = Record<string, unknown>;
 
 /* ============================================================
    MAIN WORKSPACE
@@ -245,7 +243,7 @@ function ImplantWorkspaceContent() {
     }));
   };
 
-  const handleSwitchPreset = (preset: PresetSample) => {
+  const handleSwitchPreset = (preset: ImplantPreset) => {
     setImageUrl(preset.imageUrl);
     setFileName(preset.name);
     setScanOrigin("Research Cohort Preset");
@@ -266,7 +264,9 @@ function ImplantWorkspaceContent() {
     }
   };
 
-  const implantPresets = PRESET_SAMPLES.filter((s) => s.module === "implant");
+  const implantPresets = PRESET_SAMPLES.filter(
+    (sample): sample is ImplantPreset => sample.module === "implant"
+  );
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500 max-w-7xl mx-auto w-full">
@@ -502,6 +502,11 @@ function ImplantWorkspaceContent() {
                 </button>
               ))}
             </div>
+            ) : (
+              <p className="text-xs text-slate-400">
+                No implant presets are available.
+              </p>
+            )}
           </div>
 
         </div>
