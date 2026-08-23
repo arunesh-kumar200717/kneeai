@@ -31,6 +31,7 @@ import {
   ImplantAnalysisResponse,
   CalibrationConfig,
   LayerVisibility,
+  PresetSample,
 } from "@/lib/types";
 
 function ImplantWorkspaceContent() {
