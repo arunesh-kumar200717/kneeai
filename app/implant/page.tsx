@@ -7,11 +7,9 @@ import {
   FileImage,
   Sparkles,
   ArrowLeft,
-  RefreshCw,
   Sliders,
   CheckCircle2,
   Layers,
-  ChevronDown,
   FileText,
 } from "lucide-react";
 import { SegmentationViewer } from "@/components/SegmentationViewer";
@@ -24,7 +22,6 @@ import {
   MOCK_IMPLANT_RESPONSE,
   MOCK_IMPLANT_OVERLAY_SVG,
   PRESET_SAMPLES,
-
 } from "@/lib/fixtures";
 import { calculateExactImplantMatch } from "@/lib/implant-catalog";
 import {
@@ -40,10 +37,13 @@ function ImplantWorkspaceContent() {
   const [scanOrigin, setScanOrigin] = useState<string>(
     "Module 2 Active Patient Radiograph"
   );
+
   const [fileName, setFileName] = useState<string>(
     "Patient-XRay-AP-Standing.dcm"
   );
+
   const [imageUrl, setImageUrl] = useState<string>(MOCK_XRAY_AP_SVG);
+
   const [catalog, setCatalog] = useState<string>("Stryker Triathlon");
 
   // Calibrated measurements from patient scan
@@ -94,21 +94,25 @@ function ImplantWorkspaceContent() {
     };
   });
 
-  // Auto-inherit active scan from Module 2 (sessionStorage or URL query params)
+  // Auto-inherit active scan from Module 2
+  // using sessionStorage or URL query parameters
   useEffect(() => {
     let sourceScanFound = false;
 
     // 1. Check URL parameters
     const paramFemur = searchParams.get("femurMl");
     const paramTibia = searchParams.get("tibiaMl");
+
     if (paramFemur && paramTibia) {
       const fVal = parseFloat(paramFemur);
       const tVal = parseFloat(paramTibia);
+
       if (!isNaN(fVal) && !isNaN(tVal)) {
         setFemurMl(fVal);
         setTibiaMl(tVal);
         setScanOrigin("Module 2 (Exported Morphometry)");
         setFileName("Transferred-Bone-Segmentation.dcm");
+
         sourceScanFound = true;
       }
     }
@@ -117,28 +121,45 @@ function ImplantWorkspaceContent() {
     if (!sourceScanFound && typeof window !== "undefined") {
       try {
         const stored = sessionStorage.getItem("knee_ai_active_scan");
+
         if (stored) {
           const parsed = JSON.parse(stored);
+
           if (parsed.femurMlMm && parsed.tibiaMlMm) {
             setFemurMl(parsed.femurMlMm);
             setTibiaMl(parsed.tibiaMlMm);
-            if (parsed.imageUrl) setImageUrl(parsed.imageUrl);
-            if (parsed.fileName) setFileName(parsed.fileName);
-            if (parsed.varusValgusDeg !== undefined)
+
+            if (parsed.imageUrl) {
+              setImageUrl(parsed.imageUrl);
+            }
+
+            if (parsed.fileName) {
+              setFileName(parsed.fileName);
+            }
+
+            if (parsed.varusValgusDeg !== undefined) {
               setVarusValgus(parsed.varusValgusDeg);
+            }
+
             setScanOrigin(
-              parsed.sourceModule || "Module 2 Active Patient Radiograph"
+              parsed.sourceModule ||
+                "Module 2 Active Patient Radiograph"
             );
+
             sourceScanFound = true;
           }
         }
       } catch (err) {
-        console.warn("Could not read sessionStorage scan:", err);
+        console.warn(
+          "Could not read sessionStorage scan:",
+          err
+        );
       }
     }
   }, [searchParams]);
 
-  // Re-calculate exact implant match whenever morphometry or catalog changes
+  // Re-calculate exact implant match whenever
+  // morphometry or catalog changes
   useEffect(() => {
     const exactMatch = calculateExactImplantMatch({
       femurMlMm: femurMl,
@@ -149,10 +170,18 @@ function ImplantWorkspaceContent() {
 
     setResult((prev) => ({
       ...prev,
-      femur_recommended_size: exactMatch.femurRecommendedSize,
-      tibia_recommended_size: exactMatch.tibiaRecommendedSize,
-      polyethylene_thickness_mm: exactMatch.polyethyleneThicknessMm,
-      confidence: exactMatch.confidencePercent,
+      femur_recommended_size:
+        exactMatch.femurRecommendedSize,
+
+      tibia_recommended_size:
+        exactMatch.tibiaRecommendedSize,
+
+      polyethylene_thickness_mm:
+        exactMatch.polyethyleneThicknessMm,
+
+      confidence:
+        exactMatch.confidencePercent,
+
       metadata: {
         catalog_name: catalog,
         femur_ap_width_mm: femurMl,
@@ -162,8 +191,14 @@ function ImplantWorkspaceContent() {
     }));
   }, [femurMl, tibiaMl, catalog, varusValgus]);
 
-  const handleLayerToggle = (key: keyof LayerVisibility, value: boolean) => {
-    setLayers((prev) => ({ ...prev, [key]: value }));
+  const handleLayerToggle = (
+    key: keyof LayerVisibility,
+    value: boolean
+  ) => {
+    setLayers((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
   const handleSwitchPreset = (preset: PresetSample) => {
@@ -172,122 +207,216 @@ function ImplantWorkspaceContent() {
     setScanOrigin("Research Cohort Preset");
 
     if (preset.mockResult?.metadata) {
-      if (preset.mockResult.metadata.femur_ap_width_mm) {
-        setFemurMl(preset.mockResult.metadata.femur_ap_width_mm);
+      const metadata = preset.mockResult.metadata;
+
+      /*
+       * TypeScript fix:
+       * metadata is a union type, so we check whether
+       * each property exists before accessing it.
+       */
+
+      if (
+        "femur_ap_width_mm" in metadata &&
+        typeof metadata.femur_ap_width_mm === "number"
+      ) {
+        setFemurMl(metadata.femur_ap_width_mm);
       }
-      if (preset.mockResult.metadata.tibia_ml_width_mm) {
-        setTibiaMl(preset.mockResult.metadata.tibia_ml_width_mm);
+
+      if (
+        "tibia_ml_width_mm" in metadata &&
+        typeof metadata.tibia_ml_width_mm === "number"
+      ) {
+        setTibiaMl(metadata.tibia_ml_width_mm);
       }
-      if (preset.mockResult.metadata.implant_alignment_varus_deg !== undefined) {
-        setVarusValgus(preset.mockResult.metadata.implant_alignment_varus_deg);
+
+      if (
+        "implant_alignment_varus_deg" in metadata &&
+        typeof metadata.implant_alignment_varus_deg === "number"
+      ) {
+        setVarusValgus(
+          metadata.implant_alignment_varus_deg
+        );
       }
-      if (preset.mockResult.metadata.catalog_name) {
-        setCatalog(preset.mockResult.metadata.catalog_name);
+
+      if (
+        "catalog_name" in metadata &&
+        typeof metadata.catalog_name === "string"
+      ) {
+        setCatalog(metadata.catalog_name);
       }
     }
   };
 
-  const implantPresets = PRESET_SAMPLES.filter((s) => s.module === "implant");
+  const implantPresets = PRESET_SAMPLES.filter(
+    (s) => s.module === "implant"
+  );
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500 max-w-7xl mx-auto w-full">
+
       {/* Top Header with Module Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+
         <div className="space-y-1">
+
           <div className="flex items-center gap-2 text-xs text-slate-300">
-            <Link href="/" className="hover:text-white flex items-center gap-1">
+
+            <Link
+              href="/"
+              className="hover:text-white flex items-center gap-1"
+            >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Research Hub</span>
             </Link>
+
             <span>/</span>
+
             <Link
               href="/segmentation"
               className="hover:text-white flex items-center gap-1"
             >
-              <span>Module 2 (Bone Segmentation)</span>
+              <span>
+                Module 2 (Bone Segmentation)
+              </span>
             </Link>
+
             <span>/</span>
-            <span className="text-white font-semibold">Module 3 (Implant Matching)</span>
+
+            <span className="text-white font-semibold">
+              Module 3 (Implant Matching)
+            </span>
+
           </div>
+
           <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
+
             <Layers className="w-6 h-6 text-purple-400" />
+
             Patient Prosthetic Matching &amp; Templating
+
           </h1>
+
         </div>
 
         <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+
           <button
             type="button"
             onClick={() => setIsReportOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white bg-clinical hover:bg-clinical-hover rounded-md font-bold transition-all shadow-md"
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Generate Surgical Plan Report</span>
+            <span>
+              Generate Surgical Plan Report
+            </span>
           </button>
 
-          {/* Quick Link back to Module 2 */}
           <Link
             href="/segmentation"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 rounded-md border border-white/10 transition-all shadow-xs"
           >
             <Sliders className="w-3.5 h-3.5 text-clinical" />
-            <span>Adjust Morphometry in Module 2</span>
+
+            <span>
+              Adjust Morphometry in Module 2
+            </span>
           </Link>
+
         </div>
       </div>
 
       {/* Active Scan Integration Banner */}
       <div className="bg-black/85 backdrop-blur-md !text-white border-purple-500/40 rounded-xl border p-4 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+
         <div className="flex items-center gap-3">
+
           <div className="w-10 h-10 rounded-lg bg-purple-950/80 border border-purple-500/50 flex items-center justify-center text-purple-300 shrink-0">
             <FileImage className="w-5 h-5" />
           </div>
+
           <div className="space-y-0.5">
+
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-white">{fileName}</span>
+
+              <span className="text-xs font-bold text-white">
+                {fileName}
+              </span>
+
               <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.2 rounded border border-emerald-500/30">
                 ● Auto-Inherited from {scanOrigin}
               </span>
+
             </div>
+
             <p className="text-[11px] text-slate-300">
-              Matched against <strong>{catalog}</strong> sizing specs without requiring a new upload.
+              Matched against{" "}
+              <strong>{catalog}</strong>{" "}
+              sizing specs without requiring a new upload.
             </p>
+
           </div>
         </div>
 
-        {/* Live Patient Scan Metrics Badges */}
+        {/* Live Patient Scan Metrics */}
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+
           <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-md text-center">
-            <span className="text-[10px] text-slate-400 block font-mono">Patient Femur ML</span>
-            <span className="text-xs font-bold font-mono text-sky-400">{femurMl} mm</span>
-          </div>
-          <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-md text-center">
-            <span className="text-[10px] text-slate-400 block font-mono">Patient Tibia ML</span>
-            <span className="text-xs font-bold font-mono text-amber-400">{tibiaMl} mm</span>
-          </div>
-          <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-md text-center">
-            <span className="text-[10px] text-slate-400 block font-mono">Alignment</span>
-            <span className="text-xs font-bold font-mono text-purple-300">
-              {Math.abs(varusValgus).toFixed(1)}° {varusValgus >= 0 ? "Varus" : "Valgus"}
+            <span className="text-[10px] text-slate-400 block font-mono">
+              Patient Femur ML
+            </span>
+
+            <span className="text-xs font-bold font-mono text-sky-400">
+              {femurMl} mm
             </span>
           </div>
+
+          <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-md text-center">
+            <span className="text-[10px] text-slate-400 block font-mono">
+              Patient Tibia ML
+            </span>
+
+            <span className="text-xs font-bold font-mono text-amber-400">
+              {tibiaMl} mm
+            </span>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-md text-center">
+            <span className="text-[10px] text-slate-400 block font-mono">
+              Alignment
+            </span>
+
+            <span className="text-xs font-bold font-mono text-purple-300">
+              {Math.abs(varusValgus).toFixed(1)}°{" "}
+              {varusValgus >= 0 ? "Varus" : "Valgus"}
+            </span>
+          </div>
+
         </div>
       </div>
 
       {/* Main Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Interactive Viewer + Switcher */}
+
+        {/* Left Column */}
         <div className="lg:col-span-8 space-y-4">
+
           {/* Active Radiograph Segmentation Viewer */}
           <div className="bg-black/75 backdrop-blur-md !text-slate-100 border-white/10 rounded-xl border p-4 shadow-card space-y-3">
+
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
+
               <span className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+
                 <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+
                 Active Radiograph Templating Viewer
+
               </span>
+
               <span className="text-[10px] text-slate-400 font-mono">
                 512 × 512 • 8-bit Calibrated
               </span>
+
             </div>
 
             <SegmentationViewer
@@ -297,21 +426,28 @@ function ImplantWorkspaceContent() {
               overlayImageUrl={result.overlay_image_url}
               layerVisibility={layers}
             />
+
           </div>
 
-          {/* Quick Preset Selector for Alternative Clinical Scenarios */}
+          {/* Quick Preset Selector */}
           <div className="bg-black/60 backdrop-blur-md !text-white border-white/10 rounded-xl border p-4 space-y-3">
+
             <div className="flex items-center justify-between">
+
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
                 Compare with Alternative Patient Cases
               </h3>
+
               <span className="text-[10px] text-slate-400 font-mono">
                 {implantPresets.length} Catalog Presets Ready
               </span>
+
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+
               {implantPresets.map((preset) => (
+
                 <button
                   key={preset.id}
                   type="button"
@@ -322,25 +458,34 @@ function ImplantWorkspaceContent() {
                       : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20"
                   }`}
                 >
+
                   <div className="flex items-center justify-between mb-1">
+
                     <span className="text-xs font-bold text-white truncate">
                       {preset.name}
                     </span>
+
                     {fileName === preset.name && (
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-1" />
                     )}
+
                   </div>
+
                   <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
                     {preset.description}
                   </p>
+
                 </button>
+
               ))}
+
             </div>
           </div>
         </div>
 
-        {/* Right Sidebar: Exact Sizing, Matrix, Layers, and RAG Copilot */}
+        {/* Right Sidebar */}
         <div className="lg:col-span-4 space-y-4">
+
           {/* Exact Geometric Matching Panel */}
           <ImplantPanel
             data={result}
@@ -358,7 +503,11 @@ function ImplantWorkspaceContent() {
           />
 
           {/* RAG Decision Support Copilot */}
-          <RagCopilot data={result} catalogName={catalog} />
+          <RagCopilot
+            data={result}
+            catalogName={catalog}
+          />
+
         </div>
       </div>
 
@@ -368,13 +517,22 @@ function ImplantWorkspaceContent() {
         onClose={() => setIsReportOpen(false)}
         module="implant"
         fileName={fileName}
-        originalImageUrl={imageUrl || MOCK_XRAY_AP_SVG}
-        maskImageUrl={result?.mask_image_url || MOCK_IMPLANT_OVERLAY_SVG}
-        overlayImageUrl={result?.overlay_image_url || MOCK_IMPLANT_OVERLAY_SVG}
+        originalImageUrl={
+          imageUrl || MOCK_XRAY_AP_SVG
+        }
+        maskImageUrl={
+          result?.mask_image_url ||
+          MOCK_IMPLANT_OVERLAY_SVG
+        }
+        overlayImageUrl={
+          result?.overlay_image_url ||
+          MOCK_IMPLANT_OVERLAY_SVG
+        }
         implantData={result}
         calibration={calibration}
         catalogName={catalog}
       />
+
     </div>
   );
 }
