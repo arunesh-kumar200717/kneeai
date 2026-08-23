@@ -1,10 +1,6 @@
 "use client";
 
-import React, {
-  Suspense,
-  useEffect,
-  useState,
-} from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -39,6 +35,56 @@ import type {
   LayerVisibility,
 } from "@/lib/types";
 
+/*
+ * IMPORTANT:
+ *
+ * Do NOT import PresetSample from "@/lib/fixtures".
+ *
+ * PresetSample is derived directly from PRESET_SAMPLES.
+ * This fixes:
+ *
+ * '"@/lib/fixtures"' has no exported member named 'PresetSample'
+ */
+type PresetSample = (typeof PRESET_SAMPLES)[number];
+
+/*
+ * Metadata can contain different values depending
+ * on the selected preset.
+ */
+type PresetMetadata = Record<string, unknown>;
+
+/*
+ * Safely convert unknown value to a finite number.
+ */
+function getFiniteNumber(
+  value: unknown
+): number | null {
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+/*
+ * Safely convert unknown value to a non-empty string.
+ */
+function getNonEmptyString(
+  value: unknown
+): string | null {
+  if (
+    typeof value === "string" &&
+    value.trim().length > 0
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
 /* ============================================================
    TYPES
    ============================================================ */
@@ -52,234 +98,99 @@ type PresetMetadata = Record<string, unknown>;
 function ImplantWorkspaceContent() {
   const searchParams = useSearchParams();
 
-  /* ==========================================================
-     BASIC STATE
-     ========================================================== */
-
-  const [scanOrigin, setScanOrigin] = useState(
+  const [scanOrigin, setScanOrigin] = useState<string>(
     "Module 2 Active Patient Radiograph"
   );
-
-  const [fileName, setFileName] = useState(
+  const [fileName, setFileName] = useState<string>(
     "Patient-XRay-AP-Standing.dcm"
   );
+  const [imageUrl, setImageUrl] = useState<string>(MOCK_XRAY_AP_SVG);
+  const [catalog, setCatalog] = useState<string>("Stryker Triathlon");
 
-  const [imageUrl, setImageUrl] =
-    useState<string>(MOCK_XRAY_AP_SVG);
+  // Calibrated measurements from patient scan
+  const [femurMl, setFemurMl] = useState<number>(64.5);
+  const [tibiaMl, setTibiaMl] = useState<number>(72.1);
+  const [varusValgus, setVarusValgus] = useState<number>(2.1);
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
-  const [catalog, setCatalog] =
-    useState<string>("Stryker Triathlon");
+  // Calibration state for measurements
+  const [calibration, setCalibration] = useState<CalibrationConfig>({
+    unit: "mm",
+    pixelSpacingMm: 0.25,
+  });
 
-  /* ==========================================================
-     PATIENT MEASUREMENTS
-     ========================================================== */
+  // Layer visibility state
+  const [layers, setLayers] = useState<LayerVisibility>({
+    femur: false,
+    tibia: false,
+    meniscus: false,
+    implant: true,
+    boundingBox: false,
+    measurements: true,
+  });
 
-  const [femurMl, setFemurMl] =
-    useState<number>(64.5);
-
-  const [tibiaMl, setTibiaMl] =
-    useState<number>(72.1);
-
-  const [varusValgus, setVarusValgus] =
-    useState<number>(2.1);
-
-  /* ==========================================================
-     REPORT MODAL
-     ========================================================== */
-
-  const [isReportOpen, setIsReportOpen] =
-    useState<boolean>(false);
-
-  /* ==========================================================
-     CALIBRATION
-     ========================================================== */
-
-  const [calibration, setCalibration] =
-    useState<CalibrationConfig>({
-      unit: "mm",
-      pixelSpacingMm: 0.25,
+  // Result object holding matching data
+  const [result, setResult] = useState<ImplantAnalysisResponse>(() => {
+    const initialMatch = calculateExactImplantMatch({
+      femurMlMm: 64.5,
+      tibiaMlMm: 72.1,
+      catalogName: "Stryker Triathlon",
+      varusValgusDeg: 2.1,
     });
 
-  /* ==========================================================
-     LAYER VISIBILITY
-     ========================================================== */
+    return {
+      ...MOCK_IMPLANT_RESPONSE,
+      femur_recommended_size: initialMatch.femurRecommendedSize,
+      tibia_recommended_size: initialMatch.tibiaRecommendedSize,
+      polyethylene_thickness_mm: initialMatch.polyethyleneThicknessMm,
+      confidence: initialMatch.confidencePercent,
+      mask_image_url: MOCK_IMPLANT_OVERLAY_SVG,
+      overlay_image_url: MOCK_IMPLANT_OVERLAY_SVG,
+      metadata: {
+        catalog_name: "Stryker Triathlon",
+        femur_ap_width_mm: 64.5,
+        tibia_ml_width_mm: 72.1,
+        implant_alignment_varus_deg: 2.1,
+      },
+    };
+  });
 
-  const [layers, setLayers] =
-    useState<LayerVisibility>({
-      femur: false,
-      tibia: false,
-      meniscus: false,
-      implant: true,
-      boundingBox: false,
-      measurements: true,
-    });
-
-  /* ==========================================================
-     INITIAL RESULT
-     ========================================================== */
-
-  const [result, setResult] =
-    useState<ImplantAnalysisResponse>(() => {
-      const initialMatch =
-        calculateExactImplantMatch({
-          femurMlMm: 64.5,
-          tibiaMlMm: 72.1,
-          catalogName: "Stryker Triathlon",
-          varusValgusDeg: 2.1,
-        });
-
-      return {
-        ...MOCK_IMPLANT_RESPONSE,
-
-        femur_recommended_size:
-          initialMatch.femurRecommendedSize,
-
-        tibia_recommended_size:
-          initialMatch.tibiaRecommendedSize,
-
-        polyethylene_thickness_mm:
-          initialMatch.polyethyleneThicknessMm,
-
-        confidence:
-          initialMatch.confidencePercent,
-
-        mask_image_url:
-          MOCK_IMPLANT_OVERLAY_SVG,
-
-        overlay_image_url:
-          MOCK_IMPLANT_OVERLAY_SVG,
-
-        metadata: {
-          catalog_name: "Stryker Triathlon",
-          femur_ap_width_mm: 64.5,
-          tibia_ml_width_mm: 72.1,
-          implant_alignment_varus_deg: 2.1,
-        },
-      };
-    });
-
-  /* ==========================================================
-     LOAD ACTIVE SCAN
-     ========================================================== */
-
+  // Auto-inherit active scan from Module 2 (sessionStorage or URL query params)
   useEffect(() => {
     let sourceScanFound = false;
 
-    /* --------------------------------------------------------
-       URL PARAMETERS
-       -------------------------------------------------------- */
-
-    const paramFemur =
-      searchParams.get("femurMl");
-
-    const paramTibia =
-      searchParams.get("tibiaMl");
-
+    // 1. Check URL parameters
+    const paramFemur = searchParams.get("femurMl");
+    const paramTibia = searchParams.get("tibiaMl");
     if (paramFemur && paramTibia) {
-      const femurValue =
-        Number.parseFloat(paramFemur);
-
-      const tibiaValue =
-        Number.parseFloat(paramTibia);
-
-      if (
-        Number.isFinite(femurValue) &&
-        Number.isFinite(tibiaValue)
-      ) {
-        setFemurMl(femurValue);
-        setTibiaMl(tibiaValue);
-
-        setScanOrigin(
-          "Module 2 (Exported Morphometry)"
-        );
-
-        setFileName(
-          "Transferred-Bone-Segmentation.dcm"
-        );
-
+      const fVal = parseFloat(paramFemur);
+      const tVal = parseFloat(paramTibia);
+      if (!isNaN(fVal) && !isNaN(tVal)) {
+        setFemurMl(fVal);
+        setTibiaMl(tVal);
+        setScanOrigin("Module 2 (Exported Morphometry)");
+        setFileName("Transferred-Bone-Segmentation.dcm");
         sourceScanFound = true;
       }
     }
 
-    /* --------------------------------------------------------
-       SESSION STORAGE
-       -------------------------------------------------------- */
-
-    if (
-      !sourceScanFound &&
-      typeof window !== "undefined"
-    ) {
+    // 2. Check SessionStorage from Module 2
+    if (!sourceScanFound && typeof window !== "undefined") {
       try {
-        const stored =
-          window.sessionStorage.getItem(
-            "knee_ai_active_scan"
-          );
-
+        const stored = sessionStorage.getItem("knee_ai_active_scan");
         if (stored) {
-          const parsed: unknown =
-            JSON.parse(stored);
-
-          if (
-            typeof parsed === "object" &&
-            parsed !== null
-          ) {
-            const scan =
-              parsed as Record<string, unknown>;
-
-            const storedFemur =
-              scan.femurMlMm;
-
-            const storedTibia =
-              scan.tibiaMlMm;
-
-            if (
-              typeof storedFemur === "number" &&
-              Number.isFinite(storedFemur) &&
-              typeof storedTibia === "number" &&
-              Number.isFinite(storedTibia)
-            ) {
-              setFemurMl(storedFemur);
-              setTibiaMl(storedTibia);
-
-              if (
-                typeof scan.imageUrl ===
-                "string"
-              ) {
-                setImageUrl(scan.imageUrl);
-              }
-
-              if (
-                typeof scan.fileName ===
-                "string"
-              ) {
-                setFileName(scan.fileName);
-              }
-
-              if (
-                typeof scan.varusValgusDeg ===
-                  "number" &&
-                Number.isFinite(
-                  scan.varusValgusDeg
-                )
-              ) {
-                setVarusValgus(
-                  scan.varusValgusDeg
-                );
-              }
-
-              if (
-                typeof scan.sourceModule ===
-                "string"
-              ) {
-                setScanOrigin(
-                  scan.sourceModule
-                );
-              } else {
-                setScanOrigin(
-                  "Module 2 Active Patient Radiograph"
-                );
-              }
-            }
+          const parsed = JSON.parse(stored);
+          if (parsed.femurMlMm && parsed.tibiaMlMm) {
+            setFemurMl(parsed.femurMlMm);
+            setTibiaMl(parsed.tibiaMlMm);
+            if (parsed.imageUrl) setImageUrl(parsed.imageUrl);
+            if (parsed.fileName) setFileName(parsed.fileName);
+            if (parsed.varusValgusDeg !== undefined)
+              setVarusValgus(parsed.varusValgusDeg);
+            setScanOrigin(
+              parsed.sourceModule || "Module 2 Active Patient Radiograph"
+            );
+            sourceScanFound = true;
           }
         }
       } catch (error) {
@@ -291,18 +202,14 @@ function ImplantWorkspaceContent() {
     }
   }, [searchParams]);
 
-  /* ==========================================================
-     RECALCULATE IMPLANT MATCH
-     ========================================================== */
-
+  // Re-calculate exact implant match whenever morphometry or catalog changes
   useEffect(() => {
-    const exactMatch =
-      calculateExactImplantMatch({
-        femurMlMm: femurMl,
-        tibiaMlMm: tibiaMl,
-        catalogName: catalog,
-        varusValgusDeg: varusValgus,
-      });
+    const exactMatch = calculateExactImplantMatch({
+      femurMlMm: femurMl,
+      tibiaMlMm: tibiaMl,
+      catalogName: catalog,
+      varusValgusDeg: varusValgus,
+    });
 
     setResult((previous) => ({
       ...previous,
@@ -323,20 +230,10 @@ function ImplantWorkspaceContent() {
         catalog_name: catalog,
         femur_ap_width_mm: femurMl,
         tibia_ml_width_mm: tibiaMl,
-        implant_alignment_varus_deg:
-          varusValgus,
+        implant_alignment_varus_deg: varusValgus,
       },
     }));
-  }, [
-    femurMl,
-    tibiaMl,
-    catalog,
-    varusValgus,
-  ]);
-
-  /* ==========================================================
-     LAYER TOGGLE
-     ========================================================== */
+  }, [femurMl, tibiaMl, catalog, varusValgus]);
 
   const handleLayerToggle = (
     key: keyof LayerVisibility,
@@ -348,104 +245,32 @@ function ImplantWorkspaceContent() {
     }));
   };
 
-  /* ==========================================================
-     SWITCH PRESET
-
-     IMPORTANT:
-     No PresetSample import is used anywhere.
-     TypeScript gets the type automatically from
-     PRESET_SAMPLES.
-     ========================================================== */
-
-  const handleSwitchPreset = (
-    preset: (typeof PRESET_SAMPLES)[number]
-  ) => {
+  const handleSwitchPreset = (preset: PresetSample) => {
     setImageUrl(preset.imageUrl);
     setFileName(preset.name);
     setScanOrigin("Research Cohort Preset");
 
-    const metadataValue =
-      preset.mockResult?.metadata;
-
-    if (!metadataValue) {
-      return;
-    }
-
-    const metadata =
-      metadataValue as PresetMetadata;
-
-    /* FEMUR */
-
-    const femurWidth =
-      metadata["femur_ap_width_mm"];
-
-    if (
-      typeof femurWidth === "number" &&
-      Number.isFinite(femurWidth)
-    ) {
-      setFemurMl(femurWidth);
-    }
-
-    /* TIBIA */
-
-    const tibiaWidth =
-      metadata["tibia_ml_width_mm"];
-
-    if (
-      typeof tibiaWidth === "number" &&
-      Number.isFinite(tibiaWidth)
-    ) {
-      setTibiaMl(tibiaWidth);
-    }
-
-    /* VARUS / VALGUS */
-
-    const alignment =
-      metadata[
-        "implant_alignment_varus_deg"
-      ];
-
-    if (
-      typeof alignment === "number" &&
-      Number.isFinite(alignment)
-    ) {
-      setVarusValgus(alignment);
-    }
-
-    /* CATALOG */
-
-    const catalogName =
-      metadata["catalog_name"];
-
-    if (
-      typeof catalogName === "string" &&
-      catalogName.trim().length > 0
-    ) {
-      setCatalog(catalogName);
+    if (preset.mockResult?.metadata) {
+      if (preset.mockResult.metadata.femur_ap_width_mm) {
+        setFemurMl(preset.mockResult.metadata.femur_ap_width_mm);
+      }
+      if (preset.mockResult.metadata.tibia_ml_width_mm) {
+        setTibiaMl(preset.mockResult.metadata.tibia_ml_width_mm);
+      }
+      if (preset.mockResult.metadata.implant_alignment_varus_deg !== undefined) {
+        setVarusValgus(preset.mockResult.metadata.implant_alignment_varus_deg);
+      }
+      if (preset.mockResult.metadata.catalog_name) {
+        setCatalog(preset.mockResult.metadata.catalog_name);
+      }
     }
   };
 
-  /* ==========================================================
-     IMPLANT PRESETS
-     ========================================================== */
-
-  const implantPresets =
-    PRESET_SAMPLES.filter(
-      (sample) =>
-        sample.module === "implant"
-    );
-
-  /* ==========================================================
-     UI
-     ========================================================== */
+  const implantPresets = PRESET_SAMPLES.filter((s) => s.module === "implant");
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500 max-w-7xl mx-auto w-full">
-
-      {/* =====================================================
-          HEADER
-          ===================================================== */}
-
+      {/* Top Header with Module Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 
         <div className="space-y-1">
@@ -457,7 +282,10 @@ function ImplantWorkspaceContent() {
               className="hover:text-white flex items-center gap-1"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Research Hub</span>
+
+              <span>
+                Research Hub
+              </span>
             </Link>
 
             <span>/</span>
@@ -519,41 +347,33 @@ function ImplantWorkspaceContent() {
         </div>
       </div>
 
-      {/* =====================================================
-          ACTIVE SCAN BANNER
-          ===================================================== */}
-
+      {/* Active Scan Integration Banner */}
       <div className="bg-black/85 backdrop-blur-md !text-white border-purple-500/40 rounded-xl border p-4 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
 
         <div className="flex items-center gap-3">
 
           <div className="w-10 h-10 rounded-lg bg-purple-950/80 border border-purple-500/50 flex items-center justify-center text-purple-300 shrink-0">
+
             <FileImage className="w-5 h-5" />
+
           </div>
 
           <div className="space-y-0.5">
 
             <div className="flex items-center gap-2 flex-wrap">
-
-              <span className="text-xs font-bold text-white">
-                {fileName}
-              </span>
-
-              <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/30">
-                ● Auto-Inherited from{" "}
-                {scanOrigin}
+              <span className="text-xs font-bold text-white">{fileName}</span>
+              <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.2 rounded border border-emerald-500/30">
+                ● Auto-Inherited from {scanOrigin}
               </span>
 
             </div>
 
             <p className="text-[11px] text-slate-300">
-              Matched against{" "}
-              <strong>{catalog}</strong>{" "}
-              sizing specs without requiring a
-              new upload.
+              Matched against <strong>{catalog}</strong> sizing specs without requiring a new upload.
             </p>
 
           </div>
+
         </div>
 
         {/* PATIENT METRICS */}
@@ -591,35 +411,22 @@ function ImplantWorkspaceContent() {
             </span>
 
             <span className="text-xs font-bold font-mono text-purple-300">
-
-              {Math.abs(
-                varusValgus
-              ).toFixed(1)}
-              °{" "}
-
-              {varusValgus >= 0
-                ? "Varus"
-                : "Valgus"}
-
+              {Math.abs(varusValgus).toFixed(1)}° {varusValgus >= 0 ? "Varus" : "Valgus"}
             </span>
 
           </div>
 
         </div>
+
       </div>
 
-      {/* =====================================================
-          MAIN WORKSPACE
-          ===================================================== */}
-
+      {/* Main Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
         {/* LEFT COLUMN */}
 
         <div className="lg:col-span-8 space-y-4">
-
-          {/* RADIOGRAPH VIEWER */}
-
+          {/* Active Radiograph Segmentation Viewer */}
           <div className="bg-black/75 backdrop-blur-md !text-slate-100 border-white/10 rounded-xl border p-4 shadow-card space-y-3">
 
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
@@ -633,7 +440,9 @@ function ImplantWorkspaceContent() {
               </span>
 
               <span className="text-[10px] text-slate-400 font-mono">
+
                 512 × 512 • 8-bit Calibrated
+
               </span>
 
             </div>
@@ -641,12 +450,8 @@ function ImplantWorkspaceContent() {
             <SegmentationViewer
               module="implant"
               originalImageUrl={imageUrl}
-              maskImageUrl={
-                result.mask_image_url
-              }
-              overlayImageUrl={
-                result.overlay_image_url
-              }
+              maskImageUrl={result.mask_image_url}
+              overlayImageUrl={result.overlay_image_url}
               layerVisibility={layers}
             />
 
@@ -659,67 +464,44 @@ function ImplantWorkspaceContent() {
             <div className="flex items-center justify-between">
 
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                Compare with Alternative
-                Patient Cases
+                Compare with Alternative Patient Cases
               </h3>
 
               <span className="text-[10px] text-slate-400 font-mono">
-                {implantPresets.length} Catalog
-                Presets Ready
+                {implantPresets.length} Catalog Presets Ready
               </span>
 
             </div>
 
-            {implantPresets.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {implantPresets.length >
+            0 ? (
 
-                {implantPresets.map(
-                  (preset) => (
-
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() =>
-                        handleSwitchPreset(
-                          preset
-                        )
-                      }
-                      className={`p-2.5 rounded-lg border text-left transition-all ${
-                        fileName === preset.name
-                          ? "border-purple-500 bg-purple-950/60 shadow-sm"
-                          : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20"
-                      }`}
-                    >
-
-                      <div className="flex items-center justify-between mb-1">
-
-                        <span className="text-xs font-bold text-white truncate">
-                          {preset.name}
-                        </span>
-
-                        {fileName ===
-                          preset.name && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-1" />
-                        )}
-
-                      </div>
-
-                      <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
-                        {preset.description}
-                      </p>
-
-                    </button>
-
-                  )
-                )}
-
-              </div>
-            ) : (
-              <div className="text-xs text-slate-400 bg-white/5 border border-white/10 rounded-lg p-3">
-                No implant presets are available.
-              </div>
-            )}
-
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {implantPresets.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleSwitchPreset(preset)}
+                  className={`p-2.5 rounded-lg border text-left transition-all ${
+                    fileName === preset.name
+                      ? "border-purple-500 bg-purple-950/60 shadow-sm"
+                      : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-white truncate">
+                      {preset.name}
+                    </span>
+                    {fileName === preset.name && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-1" />
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
+                    {preset.description}
+                  </p>
+                </button>
+              ))}
+            </div>
           </div>
 
         </div>
@@ -731,9 +513,7 @@ function ImplantWorkspaceContent() {
           <ImplantPanel
             data={result}
             calibration={calibration}
-            onCalibrationChange={
-              setCalibration
-            }
+            onCalibrationChange={setCalibration}
             catalog={catalog}
             onCatalogChange={
               setCatalog
@@ -742,40 +522,27 @@ function ImplantWorkspaceContent() {
 
           <LayerToggle
             visibility={layers}
-            onChange={handleLayerToggle}
+            onChange={
+              handleLayerToggle
+            }
             module="implant"
           />
 
-          <RagCopilot
-            data={result}
-            catalogName={catalog}
-          />
-
+          {/* RAG Decision Support Copilot */}
+          <RagCopilot data={result} catalogName={catalog} />
         </div>
+
       </div>
 
-      {/* =====================================================
-          CLINICAL REPORT MODAL
-          ===================================================== */}
-
+      {/* Clinical Report Modal */}
       <ClinicalReportModal
         isOpen={isReportOpen}
-        onClose={() =>
-          setIsReportOpen(false)
-        }
+        onClose={() => setIsReportOpen(false)}
         module="implant"
         fileName={fileName}
-        originalImageUrl={
-          imageUrl || MOCK_XRAY_AP_SVG
-        }
-        maskImageUrl={
-          result?.mask_image_url ||
-          MOCK_IMPLANT_OVERLAY_SVG
-        }
-        overlayImageUrl={
-          result?.overlay_image_url ||
-          MOCK_IMPLANT_OVERLAY_SVG
-        }
+        originalImageUrl={imageUrl || MOCK_XRAY_AP_SVG}
+        maskImageUrl={result?.mask_image_url || MOCK_IMPLANT_OVERLAY_SVG}
+        overlayImageUrl={result?.overlay_image_url || MOCK_IMPLANT_OVERLAY_SVG}
         implantData={result}
         calibration={calibration}
         catalogName={catalog}
@@ -784,6 +551,10 @@ function ImplantWorkspaceContent() {
     </div>
   );
 }
+
+// =============================================================
+// PAGE EXPORT
+// =============================================================
 
 /* ============================================================
    PAGE EXPORT
