@@ -24,7 +24,7 @@ import {
   MOCK_IMPLANT_RESPONSE,
   MOCK_IMPLANT_OVERLAY_SVG,
   PRESET_SAMPLES,
-  PresetSample,
+
 } from "@/lib/fixtures";
 import { calculateExactImplantMatch } from "@/lib/implant-catalog";
 import {
