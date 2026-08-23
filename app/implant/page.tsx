@@ -1,6 +1,10 @@
 "use client";
 
-import React, { useEffect, useState, Suspense } from "react";
+import React, {
+  Suspense,
+  useEffect,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -29,35 +33,28 @@ import {
 
 import { calculateExactImplantMatch } from "@/lib/implant-catalog";
 
-import {
+import type {
   ImplantAnalysisResponse,
   CalibrationConfig,
   LayerVisibility,
 } from "@/lib/types";
 
 /*
- * We do NOT import PresetSample from fixtures/types.
+ * IMPORTANT:
+ * PresetSample is NOT imported from "@/lib/fixtures".
  *
- * Instead, TypeScript automatically gets the correct type
- * from the PRESET_SAMPLES array.
+ * Instead, we derive its type directly from PRESET_SAMPLES.
  */
 type PresetSample = (typeof PRESET_SAMPLES)[number];
 
-/*
- * Metadata helper type.
- *
- * Some preset metadata objects have different properties.
- * Using this type lets us safely check properties before
- * reading them.
- */
 type PresetMetadata = Record<string, unknown>;
 
 function ImplantWorkspaceContent() {
   const searchParams = useSearchParams();
 
-  // ---------------------------------------------------------
-  // Basic scan information
-  // ---------------------------------------------------------
+  // =========================================================
+  // BASIC STATE
+  // =========================================================
 
   const [scanOrigin, setScanOrigin] = useState<string>(
     "Module 2 Active Patient Radiograph"
@@ -73,9 +70,9 @@ function ImplantWorkspaceContent() {
   const [catalog, setCatalog] =
     useState<string>("Stryker Triathlon");
 
-  // ---------------------------------------------------------
-  // Patient measurements
-  // ---------------------------------------------------------
+  // =========================================================
+  // PATIENT MEASUREMENTS
+  // =========================================================
 
   const [femurMl, setFemurMl] =
     useState<number>(64.5);
@@ -86,16 +83,16 @@ function ImplantWorkspaceContent() {
   const [varusValgus, setVarusValgus] =
     useState<number>(2.1);
 
-  // ---------------------------------------------------------
-  // Report modal
-  // ---------------------------------------------------------
+  // =========================================================
+  // REPORT MODAL
+  // =========================================================
 
   const [isReportOpen, setIsReportOpen] =
     useState<boolean>(false);
 
-  // ---------------------------------------------------------
-  // Calibration
-  // ---------------------------------------------------------
+  // =========================================================
+  // CALIBRATION
+  // =========================================================
 
   const [calibration, setCalibration] =
     useState<CalibrationConfig>({
@@ -103,9 +100,9 @@ function ImplantWorkspaceContent() {
       pixelSpacingMm: 0.25,
     });
 
-  // ---------------------------------------------------------
-  // Layer visibility
-  // ---------------------------------------------------------
+  // =========================================================
+  // LAYER VISIBILITY
+  // =========================================================
 
   const [layers, setLayers] =
     useState<LayerVisibility>({
@@ -117,9 +114,9 @@ function ImplantWorkspaceContent() {
       measurements: true,
     });
 
-  // ---------------------------------------------------------
-  // Initial implant result
-  // ---------------------------------------------------------
+  // =========================================================
+  // INITIAL IMPLANT RESULT
+  // =========================================================
 
   const [result, setResult] =
     useState<ImplantAnalysisResponse>(() => {
@@ -161,16 +158,15 @@ function ImplantWorkspaceContent() {
       };
     });
 
-  // ---------------------------------------------------------
-  // Get active scan from Module 2
-  // URL parameters OR sessionStorage
-  // ---------------------------------------------------------
+  // =========================================================
+  // LOAD ACTIVE SCAN FROM MODULE 2
+  // =========================================================
 
   useEffect(() => {
     let sourceScanFound = false;
 
     // -------------------------------------------------------
-    // 1. Read URL parameters
+    // 1. URL PARAMETERS
     // -------------------------------------------------------
 
     const paramFemur =
@@ -180,15 +176,18 @@ function ImplantWorkspaceContent() {
       searchParams.get("tibiaMl");
 
     if (paramFemur && paramTibia) {
-      const fVal = parseFloat(paramFemur);
-      const tVal = parseFloat(paramTibia);
+      const femurValue =
+        Number.parseFloat(paramFemur);
+
+      const tibiaValue =
+        Number.parseFloat(paramTibia);
 
       if (
-        Number.isFinite(fVal) &&
-        Number.isFinite(tVal)
+        Number.isFinite(femurValue) &&
+        Number.isFinite(tibiaValue)
       ) {
-        setFemurMl(fVal);
-        setTibiaMl(tVal);
+        setFemurMl(femurValue);
+        setTibiaMl(tibiaValue);
 
         setScanOrigin(
           "Module 2 (Exported Morphometry)"
@@ -203,7 +202,7 @@ function ImplantWorkspaceContent() {
     }
 
     // -------------------------------------------------------
-    // 2. Read sessionStorage
+    // 2. SESSION STORAGE
     // -------------------------------------------------------
 
     if (
@@ -212,55 +211,77 @@ function ImplantWorkspaceContent() {
     ) {
       try {
         const stored =
-          sessionStorage.getItem(
+          window.sessionStorage.getItem(
             "knee_ai_active_scan"
           );
 
-        if (stored) {
-          const parsed = JSON.parse(stored);
+        if (!stored) {
+          return;
+        }
+
+        const parsed: unknown =
+          JSON.parse(stored);
+
+        if (
+          typeof parsed !== "object" ||
+          parsed === null
+        ) {
+          return;
+        }
+
+        const scan =
+          parsed as Record<string, unknown>;
+
+        const storedFemur =
+          scan.femurMlMm;
+
+        const storedTibia =
+          scan.tibiaMlMm;
+
+        if (
+          typeof storedFemur === "number" &&
+          Number.isFinite(storedFemur) &&
+          typeof storedTibia === "number" &&
+          Number.isFinite(storedTibia)
+        ) {
+          setFemurMl(storedFemur);
+          setTibiaMl(storedTibia);
 
           if (
-            typeof parsed.femurMlMm === "number" &&
-            typeof parsed.tibiaMlMm === "number"
+            typeof scan.imageUrl === "string"
           ) {
-            setFemurMl(parsed.femurMlMm);
-            setTibiaMl(parsed.tibiaMlMm);
+            setImageUrl(scan.imageUrl);
+          }
 
-            if (
-              typeof parsed.imageUrl === "string"
-            ) {
-              setImageUrl(parsed.imageUrl);
-            }
+          if (
+            typeof scan.fileName === "string"
+          ) {
+            setFileName(scan.fileName);
+          }
 
-            if (
-              typeof parsed.fileName === "string"
-            ) {
-              setFileName(parsed.fileName);
-            }
+          if (
+            typeof scan.varusValgusDeg ===
+              "number" &&
+            Number.isFinite(
+              scan.varusValgusDeg
+            )
+          ) {
+            setVarusValgus(
+              scan.varusValgusDeg
+            );
+          }
 
-            if (
-              typeof parsed.varusValgusDeg ===
-              "number"
-            ) {
-              setVarusValgus(
-                parsed.varusValgusDeg
-              );
-            }
-
-            if (
-              typeof parsed.sourceModule ===
-              "string"
-            ) {
-              setScanOrigin(
-                parsed.sourceModule
-              );
-            } else {
-              setScanOrigin(
-                "Module 2 Active Patient Radiograph"
-              );
-            }
-
-            sourceScanFound = true;
+          if (
+            typeof scan.sourceModule ===
+            "string"
+          ) {
+            setScanOrigin(
+              scan.sourceModule
+            );
+          } else {
+            setScanOrigin(
+              "Module 2 Active Patient Radiograph"
+            );
           }
         }
       } catch (error) {
@@ -272,9 +293,9 @@ function ImplantWorkspaceContent() {
     }
   }, [searchParams]);
 
-  // ---------------------------------------------------------
-  // Recalculate implant match whenever measurements change
-  // ---------------------------------------------------------
+  // =========================================================
+  // RECALCULATE IMPLANT MATCH
+  // =========================================================
 
   useEffect(() => {
     const exactMatch =
@@ -315,9 +336,9 @@ function ImplantWorkspaceContent() {
     varusValgus,
   ]);
 
-  // ---------------------------------------------------------
-  // Layer toggle
-  // ---------------------------------------------------------
+  // =========================================================
+  // LAYER TOGGLE
+  // =========================================================
 
   const handleLayerToggle = (
     key: keyof LayerVisibility,
@@ -329,9 +350,9 @@ function ImplantWorkspaceContent() {
     }));
   };
 
-  // ---------------------------------------------------------
-  // Switch preset
-  // ---------------------------------------------------------
+  // =========================================================
+  // SWITCH PRESET
+  // =========================================================
 
   const handleSwitchPreset = (
     preset: PresetSample
@@ -340,20 +361,25 @@ function ImplantWorkspaceContent() {
     setFileName(preset.name);
     setScanOrigin("Research Cohort Preset");
 
-    if (!preset.mockResult?.metadata) {
+    const metadataValue =
+      preset.mockResult?.metadata;
+
+    if (!metadataValue) {
       return;
     }
 
     /*
-     * Convert metadata to a generic object.
-     *
-     * This prevents TypeScript from complaining because
-     * different presets can have different metadata shapes.
+     * Convert metadata into a generic object.
+     * This avoids accessing properties that may not
+     * exist on every metadata variant.
      */
     const metadata =
-      preset.mockResult.metadata as PresetMetadata;
+      metadataValue as PresetMetadata;
 
-    // Femur
+    // -------------------------------------------------------
+    // FEMUR
+    // -------------------------------------------------------
+
     const femurWidth =
       metadata["femur_ap_width_mm"];
 
@@ -364,7 +390,10 @@ function ImplantWorkspaceContent() {
       setFemurMl(femurWidth);
     }
 
-    // Tibia
+    // -------------------------------------------------------
+    // TIBIA
+    // -------------------------------------------------------
+
     const tibiaWidth =
       metadata["tibia_ml_width_mm"];
 
@@ -375,7 +404,10 @@ function ImplantWorkspaceContent() {
       setTibiaMl(tibiaWidth);
     }
 
-    // Alignment
+    // -------------------------------------------------------
+    // VARUS / VALGUS
+    // -------------------------------------------------------
+
     const alignment =
       metadata[
         "implant_alignment_varus_deg"
@@ -388,27 +420,34 @@ function ImplantWorkspaceContent() {
       setVarusValgus(alignment);
     }
 
-    // Catalog
+    // -------------------------------------------------------
+    // CATALOG
+    // -------------------------------------------------------
+
     const catalogName =
       metadata["catalog_name"];
 
-    if (typeof catalogName === "string") {
+    if (
+      typeof catalogName === "string" &&
+      catalogName.trim().length > 0
+    ) {
       setCatalog(catalogName);
     }
   };
 
-  // ---------------------------------------------------------
-  // Implant presets
-  // ---------------------------------------------------------
+  // =========================================================
+  // FILTER IMPLANT PRESETS
+  // =========================================================
 
   const implantPresets =
     PRESET_SAMPLES.filter(
-      (sample) => sample.module === "implant"
+      (sample) =>
+        sample.module === "implant"
     );
 
-  // ---------------------------------------------------------
+  // =========================================================
   // UI
-  // ---------------------------------------------------------
+  // =========================================================
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500 max-w-7xl mx-auto w-full">
@@ -527,7 +566,9 @@ function ImplantWorkspaceContent() {
           </div>
         </div>
 
-        {/* Patient metrics */}
+        {/* ===================================================
+            PATIENT METRICS
+        ==================================================== */}
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
 
@@ -562,16 +603,11 @@ function ImplantWorkspaceContent() {
             </span>
 
             <span className="text-xs font-bold font-mono text-purple-300">
-
-              {Math.abs(
-                varusValgus
-              ).toFixed(1)}
+              {Math.abs(varusValgus).toFixed(1)}
               °{" "}
-
               {varusValgus >= 0
                 ? "Varus"
                 : "Valgus"}
-
             </span>
 
           </div>
@@ -591,7 +627,9 @@ function ImplantWorkspaceContent() {
 
         <div className="lg:col-span-8 space-y-4">
 
-          {/* Viewer */}
+          {/* =================================================
+              RADIOGRAPH VIEWER
+          ================================================== */}
 
           <div className="bg-black/75 backdrop-blur-md !text-slate-100 border-white/10 rounded-xl border p-4 shadow-card space-y-3">
 
@@ -625,7 +663,9 @@ function ImplantWorkspaceContent() {
 
           </div>
 
-          {/* Presets */}
+          {/* =================================================
+              PRESETS
+          ================================================== */}
 
           <div className="bg-black/60 backdrop-blur-md !text-white border-white/10 rounded-xl border p-4 space-y-3">
 
@@ -643,50 +683,57 @@ function ImplantWorkspaceContent() {
 
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {implantPresets.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
 
-              {implantPresets.map(
-                (preset) => (
+                {implantPresets.map(
+                  (preset) => (
 
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() =>
-                      handleSwitchPreset(
-                        preset
-                      )
-                    }
-                    className={`p-2.5 rounded-lg border text-left transition-all ${
-                      fileName === preset.name
-                        ? "border-purple-500 bg-purple-950/60 shadow-sm"
-                        : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20"
-                    }`}
-                  >
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() =>
+                        handleSwitchPreset(
+                          preset
+                        )
+                      }
+                      className={`p-2.5 rounded-lg border text-left transition-all ${
+                        fileName === preset.name
+                          ? "border-purple-500 bg-purple-950/60 shadow-sm"
+                          : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20"
+                      }`}
+                    >
 
-                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-1">
 
-                      <span className="text-xs font-bold text-white truncate">
-                        {preset.name}
-                      </span>
+                        <span className="text-xs font-bold text-white truncate">
+                          {preset.name}
+                        </span>
 
-                      {fileName ===
-                        preset.name && (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-1" />
-                      )}
+                        {fileName ===
+                          preset.name && (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-1" />
+                        )}
 
-                    </div>
+                      </div>
 
-                    <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
-                      {preset.description}
-                    </p>
+                      <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
+                        {preset.description}
+                      </p>
 
-                  </button>
+                    </button>
+                  )
+                )}
 
-                )
-              )}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400 bg-white/5 border border-white/10 rounded-lg p-3">
+                No implant presets are available.
+              </div>
+            )}
 
-            </div>
           </div>
+
         </div>
 
         {/* ===================================================
@@ -694,6 +741,8 @@ function ImplantWorkspaceContent() {
         ==================================================== */}
 
         <div className="lg:col-span-4 space-y-4">
+
+          {/* Implant Panel */}
 
           <ImplantPanel
             data={result}
@@ -707,11 +756,15 @@ function ImplantWorkspaceContent() {
             }
           />
 
+          {/* Layer Controls */}
+
           <LayerToggle
             visibility={layers}
             onChange={handleLayerToggle}
             module="implant"
           />
+
+          {/* RAG Copilot */}
 
           <RagCopilot
             data={result}
@@ -733,8 +786,7 @@ function ImplantWorkspaceContent() {
         module="implant"
         fileName={fileName}
         originalImageUrl={
-          imageUrl ||
-          MOCK_XRAY_AP_SVG
+          imageUrl || MOCK_XRAY_AP_SVG
         }
         maskImageUrl={
           result?.mask_image_url ||
