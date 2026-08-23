@@ -39,28 +39,28 @@ import type {
   LayerVisibility,
 } from "@/lib/types";
 
-/*
- * IMPORTANT:
- * PresetSample is NOT imported from "@/lib/fixtures".
- *
- * Instead, we derive its type directly from PRESET_SAMPLES.
- */
-type PresetSample = (typeof PRESET_SAMPLES)[number];
+/* ============================================================
+   TYPES
+   ============================================================ */
 
 type PresetMetadata = Record<string, unknown>;
+
+/* ============================================================
+   MAIN WORKSPACE
+   ============================================================ */
 
 function ImplantWorkspaceContent() {
   const searchParams = useSearchParams();
 
-  // =========================================================
-  // BASIC STATE
-  // =========================================================
+  /* ==========================================================
+     BASIC STATE
+     ========================================================== */
 
-  const [scanOrigin, setScanOrigin] = useState<string>(
+  const [scanOrigin, setScanOrigin] = useState(
     "Module 2 Active Patient Radiograph"
   );
 
-  const [fileName, setFileName] = useState<string>(
+  const [fileName, setFileName] = useState(
     "Patient-XRay-AP-Standing.dcm"
   );
 
@@ -70,9 +70,9 @@ function ImplantWorkspaceContent() {
   const [catalog, setCatalog] =
     useState<string>("Stryker Triathlon");
 
-  // =========================================================
-  // PATIENT MEASUREMENTS
-  // =========================================================
+  /* ==========================================================
+     PATIENT MEASUREMENTS
+     ========================================================== */
 
   const [femurMl, setFemurMl] =
     useState<number>(64.5);
@@ -83,16 +83,16 @@ function ImplantWorkspaceContent() {
   const [varusValgus, setVarusValgus] =
     useState<number>(2.1);
 
-  // =========================================================
-  // REPORT MODAL
-  // =========================================================
+  /* ==========================================================
+     REPORT MODAL
+     ========================================================== */
 
   const [isReportOpen, setIsReportOpen] =
     useState<boolean>(false);
 
-  // =========================================================
-  // CALIBRATION
-  // =========================================================
+  /* ==========================================================
+     CALIBRATION
+     ========================================================== */
 
   const [calibration, setCalibration] =
     useState<CalibrationConfig>({
@@ -100,9 +100,9 @@ function ImplantWorkspaceContent() {
       pixelSpacingMm: 0.25,
     });
 
-  // =========================================================
-  // LAYER VISIBILITY
-  // =========================================================
+  /* ==========================================================
+     LAYER VISIBILITY
+     ========================================================== */
 
   const [layers, setLayers] =
     useState<LayerVisibility>({
@@ -114,9 +114,9 @@ function ImplantWorkspaceContent() {
       measurements: true,
     });
 
-  // =========================================================
-  // INITIAL IMPLANT RESULT
-  // =========================================================
+  /* ==========================================================
+     INITIAL RESULT
+     ========================================================== */
 
   const [result, setResult] =
     useState<ImplantAnalysisResponse>(() => {
@@ -158,16 +158,16 @@ function ImplantWorkspaceContent() {
       };
     });
 
-  // =========================================================
-  // LOAD ACTIVE SCAN FROM MODULE 2
-  // =========================================================
+  /* ==========================================================
+     LOAD ACTIVE SCAN
+     ========================================================== */
 
   useEffect(() => {
     let sourceScanFound = false;
 
-    // -------------------------------------------------------
-    // 1. URL PARAMETERS
-    // -------------------------------------------------------
+    /* --------------------------------------------------------
+       URL PARAMETERS
+       -------------------------------------------------------- */
 
     const paramFemur =
       searchParams.get("femurMl");
@@ -201,9 +201,9 @@ function ImplantWorkspaceContent() {
       }
     }
 
-    // -------------------------------------------------------
-    // 2. SESSION STORAGE
-    // -------------------------------------------------------
+    /* --------------------------------------------------------
+       SESSION STORAGE
+       -------------------------------------------------------- */
 
     if (
       !sourceScanFound &&
@@ -215,73 +215,71 @@ function ImplantWorkspaceContent() {
             "knee_ai_active_scan"
           );
 
-        if (!stored) {
-          return;
-        }
-
-        const parsed: unknown =
-          JSON.parse(stored);
-
-        if (
-          typeof parsed !== "object" ||
-          parsed === null
-        ) {
-          return;
-        }
-
-        const scan =
-          parsed as Record<string, unknown>;
-
-        const storedFemur =
-          scan.femurMlMm;
-
-        const storedTibia =
-          scan.tibiaMlMm;
-
-        if (
-          typeof storedFemur === "number" &&
-          Number.isFinite(storedFemur) &&
-          typeof storedTibia === "number" &&
-          Number.isFinite(storedTibia)
-        ) {
-          setFemurMl(storedFemur);
-          setTibiaMl(storedTibia);
+        if (stored) {
+          const parsed: unknown =
+            JSON.parse(stored);
 
           if (
-            typeof scan.imageUrl === "string"
+            typeof parsed === "object" &&
+            parsed !== null
           ) {
-            setImageUrl(scan.imageUrl);
-          }
+            const scan =
+              parsed as Record<string, unknown>;
 
-          if (
-            typeof scan.fileName === "string"
-          ) {
-            setFileName(scan.fileName);
-          }
+            const storedFemur =
+              scan.femurMlMm;
 
-          if (
-            typeof scan.varusValgusDeg ===
-              "number" &&
-            Number.isFinite(
-              scan.varusValgusDeg
-            )
-          ) {
-            setVarusValgus(
-              scan.varusValgusDeg
-            );
-          }
+            const storedTibia =
+              scan.tibiaMlMm;
 
-          if (
-            typeof scan.sourceModule ===
-            "string"
-          ) {
-            setScanOrigin(
-              scan.sourceModule
-            );
-          } else {
-            setScanOrigin(
-              "Module 2 Active Patient Radiograph"
-            );
+            if (
+              typeof storedFemur === "number" &&
+              Number.isFinite(storedFemur) &&
+              typeof storedTibia === "number" &&
+              Number.isFinite(storedTibia)
+            ) {
+              setFemurMl(storedFemur);
+              setTibiaMl(storedTibia);
+
+              if (
+                typeof scan.imageUrl ===
+                "string"
+              ) {
+                setImageUrl(scan.imageUrl);
+              }
+
+              if (
+                typeof scan.fileName ===
+                "string"
+              ) {
+                setFileName(scan.fileName);
+              }
+
+              if (
+                typeof scan.varusValgusDeg ===
+                  "number" &&
+                Number.isFinite(
+                  scan.varusValgusDeg
+                )
+              ) {
+                setVarusValgus(
+                  scan.varusValgusDeg
+                );
+              }
+
+              if (
+                typeof scan.sourceModule ===
+                "string"
+              ) {
+                setScanOrigin(
+                  scan.sourceModule
+                );
+              } else {
+                setScanOrigin(
+                  "Module 2 Active Patient Radiograph"
+                );
+              }
+            }
           }
         }
       } catch (error) {
@@ -293,9 +291,9 @@ function ImplantWorkspaceContent() {
     }
   }, [searchParams]);
 
-  // =========================================================
-  // RECALCULATE IMPLANT MATCH
-  // =========================================================
+  /* ==========================================================
+     RECALCULATE IMPLANT MATCH
+     ========================================================== */
 
   useEffect(() => {
     const exactMatch =
@@ -336,9 +334,9 @@ function ImplantWorkspaceContent() {
     varusValgus,
   ]);
 
-  // =========================================================
-  // LAYER TOGGLE
-  // =========================================================
+  /* ==========================================================
+     LAYER TOGGLE
+     ========================================================== */
 
   const handleLayerToggle = (
     key: keyof LayerVisibility,
@@ -350,12 +348,17 @@ function ImplantWorkspaceContent() {
     }));
   };
 
-  // =========================================================
-  // SWITCH PRESET
-  // =========================================================
+  /* ==========================================================
+     SWITCH PRESET
+
+     IMPORTANT:
+     No PresetSample import is used anywhere.
+     TypeScript gets the type automatically from
+     PRESET_SAMPLES.
+     ========================================================== */
 
   const handleSwitchPreset = (
-    preset: PresetSample
+    preset: (typeof PRESET_SAMPLES)[number]
   ) => {
     setImageUrl(preset.imageUrl);
     setFileName(preset.name);
@@ -368,17 +371,10 @@ function ImplantWorkspaceContent() {
       return;
     }
 
-    /*
-     * Convert metadata into a generic object.
-     * This avoids accessing properties that may not
-     * exist on every metadata variant.
-     */
     const metadata =
       metadataValue as PresetMetadata;
 
-    // -------------------------------------------------------
-    // FEMUR
-    // -------------------------------------------------------
+    /* FEMUR */
 
     const femurWidth =
       metadata["femur_ap_width_mm"];
@@ -390,9 +386,7 @@ function ImplantWorkspaceContent() {
       setFemurMl(femurWidth);
     }
 
-    // -------------------------------------------------------
-    // TIBIA
-    // -------------------------------------------------------
+    /* TIBIA */
 
     const tibiaWidth =
       metadata["tibia_ml_width_mm"];
@@ -404,9 +398,7 @@ function ImplantWorkspaceContent() {
       setTibiaMl(tibiaWidth);
     }
 
-    // -------------------------------------------------------
-    // VARUS / VALGUS
-    // -------------------------------------------------------
+    /* VARUS / VALGUS */
 
     const alignment =
       metadata[
@@ -420,9 +412,7 @@ function ImplantWorkspaceContent() {
       setVarusValgus(alignment);
     }
 
-    // -------------------------------------------------------
-    // CATALOG
-    // -------------------------------------------------------
+    /* CATALOG */
 
     const catalogName =
       metadata["catalog_name"];
@@ -435,9 +425,9 @@ function ImplantWorkspaceContent() {
     }
   };
 
-  // =========================================================
-  // FILTER IMPLANT PRESETS
-  // =========================================================
+  /* ==========================================================
+     IMPLANT PRESETS
+     ========================================================== */
 
   const implantPresets =
     PRESET_SAMPLES.filter(
@@ -445,16 +435,16 @@ function ImplantWorkspaceContent() {
         sample.module === "implant"
     );
 
-  // =========================================================
-  // UI
-  // =========================================================
+  /* ==========================================================
+     UI
+     ========================================================== */
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-500 max-w-7xl mx-auto w-full">
 
       {/* =====================================================
           HEADER
-      ====================================================== */}
+          ===================================================== */}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 
@@ -531,7 +521,7 @@ function ImplantWorkspaceContent() {
 
       {/* =====================================================
           ACTIVE SCAN BANNER
-      ====================================================== */}
+          ===================================================== */}
 
       <div className="bg-black/85 backdrop-blur-md !text-white border-purple-500/40 rounded-xl border p-4 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
 
@@ -566,9 +556,7 @@ function ImplantWorkspaceContent() {
           </div>
         </div>
 
-        {/* ===================================================
-            PATIENT METRICS
-        ==================================================== */}
+        {/* PATIENT METRICS */}
 
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
 
@@ -603,11 +591,16 @@ function ImplantWorkspaceContent() {
             </span>
 
             <span className="text-xs font-bold font-mono text-purple-300">
-              {Math.abs(varusValgus).toFixed(1)}
+
+              {Math.abs(
+                varusValgus
+              ).toFixed(1)}
               °{" "}
+
               {varusValgus >= 0
                 ? "Varus"
                 : "Valgus"}
+
             </span>
 
           </div>
@@ -617,19 +610,15 @@ function ImplantWorkspaceContent() {
 
       {/* =====================================================
           MAIN WORKSPACE
-      ====================================================== */}
+          ===================================================== */}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-        {/* ===================================================
-            LEFT COLUMN
-        ==================================================== */}
+        {/* LEFT COLUMN */}
 
         <div className="lg:col-span-8 space-y-4">
 
-          {/* =================================================
-              RADIOGRAPH VIEWER
-          ================================================== */}
+          {/* RADIOGRAPH VIEWER */}
 
           <div className="bg-black/75 backdrop-blur-md !text-slate-100 border-white/10 rounded-xl border p-4 shadow-card space-y-3">
 
@@ -663,9 +652,7 @@ function ImplantWorkspaceContent() {
 
           </div>
 
-          {/* =================================================
-              PRESETS
-          ================================================== */}
+          {/* PRESETS */}
 
           <div className="bg-black/60 backdrop-blur-md !text-white border-white/10 rounded-xl border p-4 space-y-3">
 
@@ -722,6 +709,7 @@ function ImplantWorkspaceContent() {
                       </p>
 
                     </button>
+
                   )
                 )}
 
@@ -736,13 +724,9 @@ function ImplantWorkspaceContent() {
 
         </div>
 
-        {/* ===================================================
-            RIGHT SIDEBAR
-        ==================================================== */}
+        {/* RIGHT SIDEBAR */}
 
         <div className="lg:col-span-4 space-y-4">
-
-          {/* Implant Panel */}
 
           <ImplantPanel
             data={result}
@@ -756,15 +740,11 @@ function ImplantWorkspaceContent() {
             }
           />
 
-          {/* Layer Controls */}
-
           <LayerToggle
             visibility={layers}
             onChange={handleLayerToggle}
             module="implant"
           />
-
-          {/* RAG Copilot */}
 
           <RagCopilot
             data={result}
@@ -776,7 +756,7 @@ function ImplantWorkspaceContent() {
 
       {/* =====================================================
           CLINICAL REPORT MODAL
-      ====================================================== */}
+          ===================================================== */}
 
       <ClinicalReportModal
         isOpen={isReportOpen}
@@ -805,9 +785,9 @@ function ImplantWorkspaceContent() {
   );
 }
 
-// =============================================================
-// PAGE EXPORT
-// =============================================================
+/* ============================================================
+   PAGE EXPORT
+   ============================================================ */
 
 export default function ImplantPage() {
   return (
